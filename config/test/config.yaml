@@ -1,0 +1,17 @@
+WebServer:
+  Port: 6666
+  ThreadNum: 3
+  ActorModel: Proactor
+  GracefulClose: False
+  ListenTrigmode: LT
+  ConnTrigmode: LT
+Log:
+  Close: False
+  Async: False
+MySql:
+  Host: your_mysql_host
+  Port: 3306
+  User: your_username
+  Password: your_password
+  DatabaseName: hello
+  SqlNum: 3

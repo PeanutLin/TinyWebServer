@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebServer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+
+        .container {
+            text-align: center;
+        }
+
+        button {
+            margin: 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+
+        .login-btn {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .login-btn:hover {
+            background-color: #45a049;
+        }
+
+        .register-btn {
+            background-color: #008CBA;
+            color: white;
+        }
+
+        .register-btn:hover {
+            background-color: #007bb5;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>欢迎访问小型网站服务器</h1>
+        <form action="1" method="post">
+            <button class="login-btn">登录</button>
+        </form>
+        <form action="0" method="post">
+            <button class="register-btn">注册</button>
+        </form>
+    </div>
+</body>
+
+</html>

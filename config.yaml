@@ -1,0 +1,22 @@
+WebServer:
+  Port: 8080
+  ThreadNum: 8
+  # Proactor Reactor
+  ActorModel: Proactor
+  GracefulClose: False
+  # LT ET
+  ListenTrigmode: LT
+  # LT ET
+  ConnTrigmode: LT
+Log:
+  Close: False
+  Async: False
+  PathName: ./WebServerLog/
+  LogName: ServerLog
+MySql:
+  Host: 127.0.0.1
+  Port: 3306
+  User: root
+  Password: 030608
+  DatabaseName: webserverdb
+  SqlNum: 8

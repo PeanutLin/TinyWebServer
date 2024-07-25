@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>欢迎使用</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+
+        .container {
+            text-align: center;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h2 {
+            margin-bottom: 20px;
+        }
+
+        button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+
+        .view-images-btn {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .view-images-btn:hover {
+            background-color: #45a049;
+        }
+
+        .view-videos-btn {
+            background-color: #008CBA;
+            color: white;
+        }
+
+        .view-videos-btn:hover {
+            background-color: #007bb5;
+        }
+
+        .go-to-store-btn {
+            background-color: #f39c12;
+            color: white;
+        }
+
+        .go-to-store-btn:hover {
+            background-color: #e67e22;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h2>功能列表</h2>
+        <form action="5" method="post">
+            <button class="view-images-btn" onclick="location.href='view-images.html'">观看图片</button>
+        </form>
+        <form action="6" method="post">
+            <button class="view-videos-btn" onclick="location.href='view-videos.html'">观看视频</button>
+        </form>
+        <button class="go-to-store-btn" onclick="location.href='http://111.230.70.68:8080/'">前往个人商城</button>
+    </div>
+</body>
+
+</html>

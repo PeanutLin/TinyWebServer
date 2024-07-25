@@ -1,5 +1,6 @@
-./vscode
-./build
-./myserver
-./TinyWebServer.tar
-./WebServerLog
+.vscode/
+build/
+WebServerLog/
+myserver
+TinyWebServer.tar
+stressTest/
