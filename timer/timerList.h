@@ -59,15 +59,16 @@ class timerSortedList {
   // 析构函数
   ~timerSortedList();
 
-  // 添加 timer 到 sortedList
-  void addTimer(timerNode* timer);
+  // 添加 timer 到 sortedList 中 first 的后面
+  void addTimer(timerNode* first, timerNode* timer);
   // 调整 timer 在 sortedList 上的位置，时间调整是单向的
   void adjustTimer(timerNode* timer);
   // 在 sorted 删除 timer
-  void delTimer(timerNode* timer);
-  // 滴答，处理超时客户端
-  void tick();
+  void deleteTimer(timerNode* timer);
+  // 超时处理，将 curTime（包含）前的 Timer 清除
+  void tick(time_t curTime);
 
   // 虚拟链表头尾节点
   timerNode *head, *tail;
+  int timerCount;
 };

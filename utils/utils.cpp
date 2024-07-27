@@ -126,7 +126,7 @@ void Utils::showError(int connfd, const char* info) {
 
 // 定时处理任务，重新定时以不断触发 SIGALRM 信号
 void Utils::timerHandler() {
-  mTimerList.tick();
+  mTimerList.tick(time(nullptr));
   // 重新触发定时
   alarm(mTimeSlot);
 }

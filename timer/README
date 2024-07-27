@@ -1,0 +1,33 @@
+# README
+
+timerList 用于管理每个客户端连接时间。对于超时的客户端请求进行资源回收。
+
+
+
+
+
+## 单元测试
+
+```shell
+# 进入单元测试目录
+$ cd test/
+# 执行脚本
+$ ./run_test.sh
+# 预期结果
+[==========] Running 2 tests from 2 test suites.
+[----------] Global test environment set-up.
+[----------] 1 test from TimerListTest
+[ RUN      ] TimerListTest.TimerListTest
+[       OK ] TimerListTest.TimerListTest (0 ms)
+[----------] 1 test from TimerListTest (0 ms total)
+
+[----------] 1 test from TimerListAdjustTest
+[ RUN      ] TimerListAdjustTest.TimerListTest
+[       OK ] TimerListAdjustTest.TimerListTest (0 ms)
+[----------] 1 test from TimerListAdjustTest (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 2 tests from 2 test suites ran. (0 ms total)
+[  PASSED  ] 2 tests.
+```
+

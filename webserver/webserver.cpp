@@ -167,7 +167,7 @@ void WebServer::initConn(int connfd, struct sockaddr_in clientAddress) {
   usersTimer[connfd].timer = timer;
 
   // 加入到时间轮
-  utils.mTimerList.addTimer(timer);
+  utils.mTimerList.addTimer(utils.mTimerList.head, timer);
 }
 
 // 若有数据传输，则将定时器往后延迟3个单位
@@ -185,7 +185,7 @@ void WebServer::adjustTimer(timerNode* timer) {
 void WebServer::dealTimer(timerNode* timer, int sockfd) {
   timer->callBackFunction(&usersTimer[sockfd]);
   if (timer) {
-    utils.mTimerList.delTimer(timer);
+    utils.mTimerList.deleteTimer(timer);
   }
 
   LOG_INFO("close fd %d", usersTimer[sockfd].sockFd);

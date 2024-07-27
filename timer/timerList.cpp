@@ -9,6 +9,7 @@ timerSortedList::timerSortedList() {
   head->prev = tail->next = nullptr;
   head->next = tail;
   tail->prev = head;
+  timerCount = 0;
 }
 
 // 析构函数
@@ -21,14 +22,13 @@ timerSortedList::~timerSortedList() {
   }
 }
 
-// 添加 timer 到 sortedList
-void timerSortedList::addTimer(timerNode* timer) {
+// 添加 timer 到 sortedList 中 first 的后面
+void timerSortedList::addTimer(timerNode* first, timerNode* timer) {
   if (timer == nullptr) {
     return;
   }
-
-  // 插入头开始插入
-  auto tmp = head;
+  timerCount++;
+  auto tmp = first;
   while (tmp->next != tail) {
     auto nextNode = tmp->next;
     if (nextNode->expire > timer->expire) {
@@ -60,40 +60,22 @@ void timerSortedList::adjustTimer(timerNode* timer) {
 
   auto tmp = timer->prev;
 
-  //  从 sotedList 上取下来
+  // 先将待调整的 timeer 从 sotedList 上取下来
   auto prevNode = timer->prev;
   auto nextNode = timer->next;
   prevNode->next = nextNode;
   nextNode->prev = prevNode;
 
   // 从 tmp 后接着插入
-  while (tmp->next != tail) {
-    auto nextNode = tmp->next;
-    if (nextNode->expire > timer->expire) {
-      tmp->next = timer;
-      timer->prev = tmp;
-      timer->next = nextNode;
-      nextNode->prev = timer;
-      // 插入后跳出循环
-      break;
-    } else {
-      tmp = nextNode;
-    }
-  }
-
-  if (tmp->next == tail) {  // 插入到链表末尾
-    tmp->next = timer;
-    timer->prev = tmp;
-    timer->next = tail;
-    tail->prev = timer;
-  }
+  addTimer(tmp, timer);
 }
 
 // 在 sortedList 删除 timer
-void timerSortedList::delTimer(timerNode* timer) {
+void timerSortedList::deleteTimer(timerNode* timer) {
   if (timer == nullptr) {
     return;
   }
+  timerCount--;
   auto prevNode = timer->prev;
   auto nextNode = timer->next;
   prevNode->next = nextNode;
@@ -101,13 +83,12 @@ void timerSortedList::delTimer(timerNode* timer) {
   delete timer;
 }
 
-// 滴答，处理超时客户端
-void timerSortedList::tick() {
+// 超时处理，将 curTime（包含）前的 Timer 清除
+void timerSortedList::tick(time_t curTime) {
   if (head->next == tail) {
     return;
   }
 
-  time_t curTime = time(nullptr);
   timerNode* tmp = head;
   while (tmp->next != tail) {
     auto nextNode = tmp->next;
@@ -115,10 +96,10 @@ void timerSortedList::tick() {
       break;
     } else {
       // 超时处理
-      if (tmp->callBackFunction != nullptr) {
-        tmp->callBackFunction(nextNode->userData);
+      if (nextNode->callBackFunction != nullptr) {
+        nextNode->callBackFunction(nextNode->userData);
       }
-      delTimer(nextNode);
+      deleteTimer(nextNode);
     }
   }
 }

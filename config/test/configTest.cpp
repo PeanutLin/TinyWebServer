@@ -5,7 +5,7 @@
 TEST(ConfigTest, ConfigParseTest) {
   Config config;
   std::string filePath = "./config.yaml";
-  config.LoadConfigFile(filePath);
+  config.loadConfigFile(filePath);
   EXPECT_EQ(config.Port, 6666);
 }
 
