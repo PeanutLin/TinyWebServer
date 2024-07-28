@@ -109,13 +109,15 @@ void Log::writeLog(int level, const char* format, ...) {
     snprintf(tail, 16, "%d_%02d_%02d_", myTm.tm_year + 1900, myTm.tm_mon + 1,
              myTm.tm_mday);
 
+    auto configPtr = Config::getInstance();
     if (mToday != myTm.tm_mday) {
-      snprintf(newLog, 255, "%s%s%s", mDirName.c_str(), tail, mLogName.c_str());
+      snprintf(newLog, 255, "%s%s%s", configPtr->pathName.c_str(), tail,
+               configPtr->logName.c_str());
       mToday = myTm.tm_mday;
       mCount = 0;
     } else {
-      snprintf(newLog, 255, "%s%s%s.%lld", mDirName.c_str(), tail,
-               mLogName.c_str(), mCount / mSplitLines);
+      snprintf(newLog, 255, "%s%s%s.%lld", configPtr->pathName.c_str(), tail,
+               configPtr->logName.c_str(), mCount / mSplitLines);
     }
     mFp = fopen(newLog, "a");
   }

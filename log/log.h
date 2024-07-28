@@ -13,14 +13,12 @@
 
 class Log {
  private:
-  std::string mDirName;  // 路径名
-  std::string mLogName;  // log文件名
-  int mSplitLines;       // 日志最大行数
-  int mLogBufSize;       // 日志缓冲区大小
-  long long mCount;      // 日志行数记录
-  int mToday;            // 因为按天分类,记录当前时间是那一天
-  FILE* mFp;             // 打开log的文件指针
-  char* mBuf;            // log 缓冲区
+  int mSplitLines;   // 日志最大行数
+  int mLogBufSize;   // 日志缓冲区大小
+  long long mCount;  // 日志行数记录
+  int mToday;        // 因为按天分类,记录当前时间是那一天
+  FILE* mFp;         // 打开log的文件指针
+  char* mBuf;        // log 缓冲区
   blockQueue<std::string>* mLogQueue;  // 阻塞队列
   std::mutex mMutex;
 
