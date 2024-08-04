@@ -113,7 +113,7 @@ void httpConn::init() {
 }
 
 // 从状态机，用于分析出一行内容
-// 返回值为行的读取状态，有LINE_OK,LINE_BAD,LINE_OPEN
+// 返回值为行的读取状态，有 LINE_OK,LINE_BAD,LINE_OPEN
 httpConn::LINE_STATUS httpConn::parseLine() {
   char temp;
   for (; mCheckedIndex < mReadIndex; ++mCheckedIndex) {
@@ -141,7 +141,8 @@ httpConn::LINE_STATUS httpConn::parseLine() {
 
 // 循环读取客户数据，直到无数据可读或对方关闭连接
 // 非阻塞ET工作模式下，需要一次性将数据读完
-bool httpConn::readOnce() {
+bool httpConn::readHTTPRequest() {
+  // 缓冲区已满
   if (mReadIndex >= READ_BUFFER_SIZE) {
     return false;
   }
@@ -259,7 +260,7 @@ httpConn::HTTP_CODE httpConn::parseContent(char* text) {
   return NO_REQUEST;
 }
 
-httpConn::HTTP_CODE httpConn::processRead() {
+httpConn::HTTP_CODE httpConn::parseHTTPRequest() {
   LINE_STATUS line_status = LINE_OK;
   HTTP_CODE ret = NO_REQUEST;
   char* text = 0;
@@ -402,6 +403,7 @@ httpConn::HTTP_CODE httpConn::doRequest() {
     strncpy(mRealFile + len, mURL, FILENAME_LEN - len - 1);
   }
 
+  // 通过 stat 得到文件的基本信息
   if (stat(mRealFile, &mFileStat) < 0) {
     return NO_RESOURCE;
   }
@@ -415,32 +417,38 @@ httpConn::HTTP_CODE httpConn::doRequest() {
   }
 
   int fd = open(mRealFile, O_RDONLY);
+
+  // 内存映射得到文件数据
   mFileAddress =
       (char*)mmap(0, mFileStat.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
   close(fd);
   return FILE_REQUEST;
 }
 
+// 取消文件的内存映射
 void httpConn::unmap() {
   if (mFileAddress) {
     munmap(mFileAddress, mFileStat.st_size);
-    mFileAddress = 0;
+    mFileAddress = nullptr;
   }
 }
 
 // 向客户端写数据
-bool httpConn::write() {
+bool httpConn::writeHTTPResponse() {
   int temp = 0;
 
+  // 没有数据传输，就退出
   if (bytesToSend == 0) {
     UTILS::modfd(mEpollfd, mSockfd, EPOLLIN, mTRIGMode);
     init();
     return true;
   }
 
+  // 传输数据
   while (true) {
     temp = writev(mSockfd, mIV, mIVCount);
 
+    // 错误处理
     if (temp < 0) {
       if (errno == EAGAIN) {
         UTILS::modfd(mEpollfd, mSockfd, EPOLLOUT, mTRIGMode);
@@ -523,7 +531,7 @@ bool httpConn::addContent(const char* content) {
   return addResponse("%s", content);
 }
 
-bool httpConn::processWrite(HTTP_CODE ret) {
+bool httpConn::prepareHTTPResponse(HTTP_CODE ret) {
   switch (ret) {
     case INTERNAL_ERROR: {
       addStatusLine(500, error_500_title);
@@ -550,10 +558,13 @@ bool httpConn::processWrite(HTTP_CODE ret) {
       addStatusLine(200, ok_200_title);
       if (mFileStat.st_size != 0) {
         addHeaders(mFileStat.st_size);
+        // 请求报头
         mIV[0].iov_base = mWriteBuf;
         mIV[0].iov_len = mWriteIndex;
+        // 文件数据
         mIV[1].iov_base = mFileAddress;
         mIV[1].iov_len = mFileStat.st_size;
+        // 总共两个文件
         mIVCount = 2;
         bytesToSend = mWriteIndex + mFileStat.st_size;
         return true;
@@ -567,6 +578,7 @@ bool httpConn::processWrite(HTTP_CODE ret) {
     default:
       return false;
   }
+  // 没有实际的文件请求，只返回简单的响应报文
   mIV[0].iov_base = mWriteBuf;
   mIV[0].iov_len = mWriteIndex;
   mIVCount = 1;
@@ -575,19 +587,19 @@ bool httpConn::processWrite(HTTP_CODE ret) {
 }
 
 // 解析数据包
-void httpConn::process() {
-  HTTP_CODE readResult = processRead();
+void httpConn::handleHTTPRequest() {
+  HTTP_CODE readResult = parseHTTPRequest();
   if (readResult == NO_REQUEST) {
     UTILS::modfd(mEpollfd, mSockfd, EPOLLIN, mTRIGMode);
     return;
   }
 
-  bool writeResult = processWrite(readResult);
-  if (!writeResult) {
+  bool prepareResult = prepareHTTPResponse(readResult);
+  if (!prepareResult) {
     // closeConn();
   }
 
-  // 监听读请求
+  // 监听写请求
   UTILS::modfd(mEpollfd, mSockfd, EPOLLOUT, mTRIGMode);
 }
 

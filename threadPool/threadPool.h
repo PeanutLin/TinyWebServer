@@ -108,16 +108,16 @@ void threadPool<T>::run() {
     // 模式
     if (ACTOR_MODE::REACTOR == mActorModel) {
       if (REQUEST_STEATE::READ == request->mState) {
-        if (request->readOnce()) {
+        if (request->readHTTPRequest()) {
           request->improv = 1;
           connRAII mysqlcon(&request->mysql, mConnPool);
-          request->process();
+          request->handleHTTPRequest();
         } else {
           request->improv = 1;
           request->timerFlag = 1;
         }
       } else if (REQUEST_STEATE::WRITE == request->mState) {
-        if (request->write()) {
+        if (request->writeHTTPResponse()) {
           request->improv = 1;
         } else {
           request->improv = 1;
@@ -128,7 +128,7 @@ void threadPool<T>::run() {
       }
     } else if (ACTOR_MODE::PROACTOR == mActorModel) {
       connRAII mysqlcon(&request->mysql, mConnPool);
-      request->process();
+      request->handleHTTPRequest();
     } else {
       // none
     }

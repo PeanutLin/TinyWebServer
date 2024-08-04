@@ -172,7 +172,7 @@ void WebServer::initConn(int connfd, struct sockaddr_in clientAddress) {
 
 // 若有数据传输，则将定时器往后延迟3个单位
 // 并对新的定时器在链表上的位置进行调整
-void WebServer::adjustTimer(timerNode* timer) {
+void WebServer::updateTimer(timerNode* timer) {
   time_t cur = time(nullptr);
   // 设置超时时间
   timer->expire = cur + 3 * TIMESLOT;
@@ -182,7 +182,7 @@ void WebServer::adjustTimer(timerNode* timer) {
 }
 
 // 使用回调函数处理 timer
-void WebServer::dealTimer(timerNode* timer, int sockfd) {
+void WebServer::handleTimerEvent(timerNode* timer, int sockfd) {
   timer->callBackFunction(&usersTimer[sockfd]);
   if (timer) {
     utils.mTimerList.deleteTimer(timer);
@@ -192,7 +192,7 @@ void WebServer::dealTimer(timerNode* timer, int sockfd) {
 }
 
 // 处理客户端连接事件
-bool WebServer::dealClientData() {
+bool WebServer::handleClientConnection() {
   auto configPtr = Config::getInstance();
   struct sockaddr_in clientAddress;
   socklen_t client_addrlength = sizeof(clientAddress);
@@ -215,7 +215,7 @@ bool WebServer::dealClientData() {
   return true;
 }
 
-bool WebServer::dealWithSignal(bool& checkTime, bool& stopServer) {
+bool WebServer::handleSignals(bool& checkTime, bool& stopServer) {
   int ret = 0;
   char signals[1024];
   ret = recv(mPipefd[0], signals, sizeof(signals), 0);
@@ -241,13 +241,13 @@ bool WebServer::dealWithSignal(bool& checkTime, bool& stopServer) {
 }
 
 // 处理读请求
-void WebServer::dealWithRead(int sockfd) {
+void WebServer::handleReadEvent(int sockfd) {
   timerNode* timer = usersTimer[sockfd].timer;
   auto configPtr = Config::getInstance();
   // Reactor 模式
   if (ACTOR_MODE::REACTOR == configPtr->actorModel) {
     if (timer) {
-      adjustTimer(timer);
+      updateTimer(timer);
     }
 
     // 标记一个读事件，并加入请求队列
@@ -256,36 +256,37 @@ void WebServer::dealWithRead(int sockfd) {
     while (true) {
       if (1 == users[sockfd].improv) {
         if (1 == users[sockfd].timerFlag) {
-          dealTimer(timer, sockfd);
+          handleTimerEvent(timer, sockfd);
           users[sockfd].timerFlag = 0;
         }
         users[sockfd].improv = 0;
         break;
       }
     }
-  } else {
-    // Proactor 模式
-    if (users[sockfd].readOnce()) {
+  } else if (ACTOR_MODE::PROACTOR == configPtr->actorModel) {
+    if (users[sockfd].readHTTPRequest()) {
       LOG_INFO("deal with the client(%s)",
                inet_ntoa(users[sockfd].getAddress()->sin_addr));
       // 若监测到读事件，将该事件放入请求队列
       mPool->append(users + sockfd, REQUEST_STEATE::WRITE);
       if (timer) {
-        adjustTimer(timer);
+        updateTimer(timer);
       }
     } else {
-      dealTimer(timer, sockfd);
+      handleTimerEvent(timer, sockfd);
     }
+  } else {
+    // none
   }
 }
 
-void WebServer::dealWithWrite(int sockfd) {
+void WebServer::handleWriteEvent(int sockfd) {
   auto configPtr = Config::getInstance();
   timerNode* timer = usersTimer[sockfd].timer;
 
   if (ACTOR_MODE::REACTOR == configPtr->actorModel) {
     if (timer) {
-      adjustTimer(timer);
+      updateTimer(timer);
     }
 
     mPool->append(users + sockfd, REQUEST_STEATE::WRITE);
@@ -294,7 +295,7 @@ void WebServer::dealWithWrite(int sockfd) {
     while (true) {
       if (1 == users[sockfd].improv) {
         if (1 == users[sockfd].timerFlag) {
-          dealTimer(timer, sockfd);
+          handleTimerEvent(timer, sockfd);
           users[sockfd].timerFlag = 0;
         }
         users[sockfd].improv = 0;
@@ -302,15 +303,15 @@ void WebServer::dealWithWrite(int sockfd) {
       }
     }
   } else if (ACTOR_MODE::PROACTOR == configPtr->actorModel) {
-    if (users[sockfd].write()) {
+    if (users[sockfd].writeHTTPResponse()) {
       LOG_INFO("send data to the client(%s)",
                inet_ntoa(users[sockfd].getAddress()->sin_addr));
 
       if (timer) {
-        adjustTimer(timer);
+        updateTimer(timer);
       }
     } else {
-      dealTimer(timer, sockfd);
+      handleTimerEvent(timer, sockfd);
     }
   }
 }
@@ -333,27 +334,27 @@ void WebServer::eventLoop() {
       int sockfd = events[i].data.fd;
       // 响应 fd 为服务器 Listend fd
       if (sockfd == mListenfd) {
-        bool flag = dealClientData();
+        bool flag = handleClientConnection();
         if (false == flag) {
           continue;
         }
       } else if (events[i].events & (EPOLLRDHUP | EPOLLHUP | EPOLLERR)) {
         // 服务器端关闭连接，处理对应的 fd
         timerNode* timer = usersTimer[sockfd].timer;
-        dealTimer(timer, sockfd);
+        handleTimerEvent(timer, sockfd);
       }
-      // 处理父子进程之间信号
+      // 信号事件处理
       else if ((sockfd == mPipefd[0]) && (events[i].events & EPOLLIN)) {
-        bool flag = dealWithSignal(checkTime, stopServer);
+        bool flag = handleSignals(checkTime, stopServer);
         if (false == flag)
           LOG_ERROR("%s", "dealclientdata failure");
       }
       // 处理客户端连接上接收到的数据
       else if (events[i].events & EPOLLIN) {
-        dealWithRead(sockfd);
+        handleReadEvent(sockfd);
       } else if (events[i].events & EPOLLOUT) {
         // 处理客户端写的数据
-        dealWithWrite(sockfd);
+        handleWriteEvent(sockfd);
       }
     }
     if (checkTime) {

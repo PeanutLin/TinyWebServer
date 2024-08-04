@@ -33,7 +33,7 @@ class WebServer {
   // epoll 结构体套接字
   int mEpollfd;
 
-  // 管道，用于主线程与子线程之间的通信
+  // 管道，用于延迟信号处理到主循环
   // mPipefd[0]：读管道；mPipefd[1]：写管道
   int mPipefd[2];
   // epoll 事件
@@ -74,16 +74,16 @@ class WebServer {
   void initEventListen();
   // 初始化连接
   void initConn(int connFd, sockaddr_in clientAddress);
-  // 调整客户端定时器
-  void adjustTimer(timerNode* timer);
+  // 更新客户端定时器
+  void updateTimer(timerNode* timer);
   // 使用回调函数处理 timer
-  void dealTimer(timerNode* timer, int sockFd);
+  void handleTimerEvent(timerNode* timer, int sockFd);
   // 处理客户端数据
-  bool dealClientData();
+  bool handleClientConnection();
   // 处理信号
-  bool dealWithSignal(bool& timeout, bool& stopServer);
+  bool handleSignals(bool& timeout, bool& stopServer);
   // 处理写请求
-  void dealWithRead(int sockFd);
+  void handleReadEvent(int sockFd);
   // 处理读请求
-  void dealWithWrite(int sockFd);
+  void handleWriteEvent(int sockFd);
 };
