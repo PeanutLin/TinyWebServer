@@ -319,13 +319,15 @@ httpConn::HTTP_CODE httpConn::doRequest() {
     strncpy(mRealFile + len, realURL, FILENAME_LEN - len - 1);
     free(realURL);
 
-    // 将用户名和密码提取出来
-    // user=123&passwd=123
+    // 将用户名和密码提取出来（注意下标）
+    // username=123&passwd=123
     char name[100], password[100];
     int i;
-    for (i = 5; mString[i] != '&'; ++i)
-      name[i - 5] = mString[i];
-    name[i - 5] = '\0';
+    std::cout << mString << std::endl;
+    for (i = 9; mString[i] != '&'; ++i) {
+      name[i - 9] = mString[i];
+    }
+    name[i] = '\0';
 
     int j = 0;
     for (i = i + 10; mString[i] != '\0'; ++i, ++j) {
@@ -343,8 +345,11 @@ httpConn::HTTP_CODE httpConn::doRequest() {
       strcat(sql_insert, "', '");
       strcat(sql_insert, password);
       strcat(sql_insert, "')");
+      std::cout << name << std::endl;
+      std::cout << sql_insert << std::endl;
 
       if (users.find(name) == users.end()) {
+        // 正常注册
         sqlMutex.lock();
         int res = mysql_query(mysql, sql_insert);
         users.insert(std::pair<std::string, std::string>(name, password));
@@ -356,6 +361,7 @@ httpConn::HTTP_CODE httpConn::doRequest() {
           strcpy(mURL, "/registerError.html");
         }
       } else {
+        // 数据库中有重名的
         strcpy(mURL, "/registerError.html");
       }
     }
