@@ -323,11 +323,10 @@ httpConn::HTTP_CODE httpConn::doRequest() {
     // username=123&passwd=123
     char name[100], password[100];
     int i;
-    std::cout << mString << std::endl;
     for (i = 9; mString[i] != '&'; ++i) {
       name[i - 9] = mString[i];
     }
-    name[i] = '\0';
+    name[i - 9] = '\0';
 
     int j = 0;
     for (i = i + 10; mString[i] != '\0'; ++i, ++j) {
@@ -345,8 +344,7 @@ httpConn::HTTP_CODE httpConn::doRequest() {
       strcat(sql_insert, "', '");
       strcat(sql_insert, password);
       strcat(sql_insert, "')");
-      std::cout << name << std::endl;
-      std::cout << sql_insert << std::endl;
+      LOG_DEBUG(sql_insert);
 
       if (users.find(name) == users.end()) {
         // 正常注册
