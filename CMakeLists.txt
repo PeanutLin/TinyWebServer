@@ -12,7 +12,9 @@ add_executable(myserver
   ./utils/utils.cpp
   ./timer/timerList.cpp
   ./http/httpConn.cpp
-  ./db/sqlConnPool.cpp
+  ./db/connRAII.h
+  ./db/sqlConnPool.h
+  ./db/MySQL.cpp
   ./webserver/webserver.cpp
   ./app/main.cpp
 )

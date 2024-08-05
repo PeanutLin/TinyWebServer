@@ -22,12 +22,14 @@
 #include <atomic>
 #include <map>
 
-#include "../db/sqlConnPool.h"
+#include "../db/MySQL.h"
+#include "../db/connRAII.h"
+#include "../log/log.h"
 #include "../types/types.h"
 #include "../utils/utils.h"
 
 class httpConn {
-  // 静态变量
+  // 静态变量 -----------------------------------------
  public:
   static const int FILENAME_LEN = 200;
   static const int READ_BUFFER_SIZE = 2048;
@@ -65,9 +67,9 @@ class httpConn {
   };
   enum LINE_STATUS { LINE_OK = 0, LINE_BAD, LINE_OPEN };
 
+  // 成员变量 -----------------------------------------
  public:
-  MYSQL* mysql;
-  // 当前请求状态
+  // 请求处理状态
   REQUEST_STEATE mState;
 
  private:
@@ -105,6 +107,8 @@ class httpConn {
   char* mString;
 
   // 数据接收发送相关 ----------------------
+  // 数据库连接池
+  std::shared_ptr<connPool<MySQLConn>> mConnPool;
   // 客户端 tcp Read 缓冲区
   char mReadBuf[READ_BUFFER_SIZE];
   // 读缓冲区下标
@@ -120,12 +124,7 @@ class httpConn {
 
   char* docRoot;
 
-  std::map<std::string, std::string> mUsers;
   int mTRIGMode;
-
-  char sqlUser[100];
-  char sqlPasswd[100];
-  char sqlName[100];
 
  private:
   void init();
@@ -167,8 +166,8 @@ class httpConn {
   ~httpConn() {}
 
  public:
-  void init(int sockfd, const sockaddr_in& addr, char*, int, int,
-            std::string user, std::string passwd, std::string sqlname);
+  void initConn(int sockfd, const sockaddr_in& addr, char* assets, int TRIGMode,
+                std::shared_ptr<connPool<MySQLConn>> pool);
   // 主动关闭连接
   void closeConn(bool real_close = true);
   // 循环读取客户数据
@@ -181,8 +180,6 @@ class httpConn {
   bool writeHTTPResponse();
   // 获取客户端信息
   sockaddr_in* getAddress();
-  // 初始化 mysql 数据查询
-  void initMysqlResult(std::shared_ptr<connPool>& connPool);
   int timerFlag;
   int improv;
 };

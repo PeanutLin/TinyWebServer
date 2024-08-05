@@ -1,37 +1,23 @@
 #pragma once
-
-#include <error.h>
-#include <mysql/mysql.h>
-#include <stdio.h>
-#include <string.h>
-
 #include <condition_variable>
 #include <iostream>
 #include <list>
+#include <memory>
 #include <mutex>
 #include <string>
 
-#include "../log/log.h"
-
 // 连接池
+template <typename ConnType>
 class connPool {
  private:
-  int mMaxConn;                 // 最大连接数
-  int mCurConn;                 // 当前已使用的连接数
-  int mFreeConn;                // 当前空闲的连接数
-  std::list<MYSQL*> mConnList;  // 连接池
+  int MaxConn;                                    // 最大连接数
+  int CurConn;                                    // 当前已使用的连接数
+  int FreeConn;                                   // 当前空闲的连接数
+  std::list<std::shared_ptr<ConnType>> ConnList;  // 连接池
 
   // 连接池同步
   std::mutex mMutex;
   std::condition_variable mCond;
-
- public:
-  std::string mURL;           // 主机地址
-  std::string mPort;          // 数据库端口号
-  std::string mUser;          // 登陆数据库用户名
-  std::string mPassWord;      // 登陆数据库密码
-  std::string mDatabaseName;  // 使用数据库名
-  bool mIsClosed;             // 日志开关
 
  public:
   // 构造函数
@@ -40,23 +26,89 @@ class connPool {
   ~connPool();
 
  public:
-  MYSQL* GetConnection();               // 获取数据库连接
-  bool ReleaseConnection(MYSQL* conn);  // 释放连接
-  int GetFreeConn();                    // 获取连接
-  void DestroyPool();                   // 销毁所有连接
-
+  // 从连接池获取一个可用的连接
+  std::shared_ptr<ConnType> GetConnection();
+  // 释放连接，将连接放回到连接池
+  bool ReleaseConnection(std::shared_ptr<ConnType>);
+  // 获取空闲连接个数
+  int GetFreeConnNum();
+  // 销毁连接池，并销毁里面所有连接
+  void DestroyPool();
   // 初始化连接池
-  void init(std::string url, std::string User, std::string PassWord,
-            std::string DBName, int Port, int MaxConn);
+  void init(int MaxConn);
 };
 
-// 使用 RALL 管理 connection
-class connRAII {
- public:
-  connRAII(MYSQL** con, std::shared_ptr<connPool> connPool);
-  ~connRAII();
+// 构造函数
+template <typename ConnType>
+connPool<ConnType>::connPool() {
+  // 当前连接和空闲连接均为 0
+  CurConn = 0;
+  FreeConn = 0;
+}
 
- private:
-  MYSQL* conRAII;
-  std::shared_ptr<connPool> poolRAII;
-};
+// 析构函数
+template <typename ConnType>
+connPool<ConnType>::~connPool() {
+  DestroyPool();
+}
+
+// 初始化连接池
+template <typename ConnType>
+void connPool<ConnType>::init(int MaxConn) {
+  for (int i = 0; i < MaxConn; i++) {
+    std::shared_ptr<ConnType> con = std::make_shared<ConnType>();
+    ConnList.push_back(con);
+    ++FreeConn;
+  }
+  MaxConn = FreeConn;
+}
+
+// 当有请求时，从数据库连接池中返回一个可用连接，更新使用和空闲连接数
+template <typename ConnType>
+std::shared_ptr<ConnType> connPool<ConnType>::GetConnection() {
+  if (0 == ConnList.size()) {
+    return nullptr;
+  }
+
+  std::unique_lock<std::mutex> locker(mMutex);
+  mCond.wait(locker, [this] { return FreeConn > 0; });
+
+  auto con = ConnList.front();
+  ConnList.pop_front();
+
+  --FreeConn;
+  ++CurConn;
+  mCond.notify_all();
+  return con;
+}
+
+// 释放当前使用的连接
+template <typename ConnType>
+bool connPool<ConnType>::ReleaseConnection(std::shared_ptr<ConnType> con) {
+
+  std::unique_lock<std::mutex> locker(mMutex);
+
+  ConnList.push_back(con);
+  ++FreeConn;
+  --CurConn;
+  mCond.notify_all();
+  return true;
+}
+
+// 销毁数据库连接池
+template <typename ConnType>
+void connPool<ConnType>::DestroyPool() {
+  std::unique_lock<std::mutex> locker(mMutex);
+  if (ConnList.size() > 0) {
+    ConnList.clear();
+    CurConn = 0;
+    ConnList.clear();
+    FreeConn = 0;
+  }
+}
+
+// 当前空闲的连接数
+template <typename ConnType>
+int connPool<ConnType>::GetFreeConnNum() {
+  return this->FreeConn;
+}

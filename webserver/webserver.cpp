@@ -44,20 +44,16 @@ void WebServer::init() {
 
 // 初始化数据库连接池
 void WebServer::initSqlPool() {
-  mConnPool = std::make_shared<connPool>();
+  mConnPool = std::make_shared<connPool<MySQLConn>>();
   auto configPtr = Config::getInstance();
-  mConnPool->init("localhost", configPtr->mysqlUser, configPtr->mysqlPasswd,
-                  configPtr->databaseName, configPtr->mysqlPort,
-                  configPtr->sqlNum);
-  // 初始化数据库读取表
-  users->initMysqlResult(mConnPool);
+  mConnPool->init(configPtr->sqlNum);
 }
 
 // 初始化线程池
 void WebServer::initThreadPool() {
   auto configPtr = Config::getInstance();
-  mPool = std::make_shared<threadPool<httpConn>>(
-      configPtr->actorModel, mConnPool, configPtr->threadNum);
+  mPool = std::make_shared<threadPool<httpConn>>(configPtr->actorModel,
+                                                 configPtr->threadNum);
 }
 
 // 初始化监听服务器
@@ -147,9 +143,8 @@ void WebServer::initEventListen() {
 void WebServer::initConn(int connfd, struct sockaddr_in clientAddress) {
   auto configPtr = Config::getInstance();
   // 初始化连接
-  users[connfd].init(connfd, clientAddress, assetsPath, configPtr->connTrigmode,
-                     configPtr->isLogClosed, configPtr->mysqlUser,
-                     configPtr->mysqlPasswd, configPtr->databaseName);
+  users[connfd].initConn(connfd, clientAddress, assetsPath,
+                         configPtr->connTrigmode, mConnPool);
 
   // 初始化 client_data 数据
   // 创建定时器，设置回调函数和超时时间，绑定用户数据，将定时器添加到链表中
@@ -361,6 +356,8 @@ void WebServer::eventLoop() {
       utils.timerHandler();
       LOG_INFO("%s", "timer tick");
       LOG_INFO("alive connection: %d", httpConn::userCount.load())
+      LOG_INFO("mysql free connection: %d",
+               WebServer::mConnPool->GetFreeConnNum());
       checkTime = false;
     }
   }

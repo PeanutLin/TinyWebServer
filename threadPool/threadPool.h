@@ -6,15 +6,14 @@
 #include <exception>
 #include <list>
 
-#include "../db/sqlConnPool.h"
 #include "../types/types.h"
 
 template <typename T>
 class threadPool {
  public:
   // 构造析构函数
-  threadPool(ACTOR_MODE actor_model, std::shared_ptr<connPool> connPool,
-             int threadNumber = 8, int maxRequest = 10000);
+  threadPool(ACTOR_MODE actor_model, int threadNumber = 8,
+             int maxRequest = 10000);
   ~threadPool();
 
  public:
@@ -29,8 +28,7 @@ class threadPool {
 
  private:
   // 数据结构 ----------------------------------------
-  std::list<T*> mWorkQueue;             // 请求队列
-  std::shared_ptr<connPool> mConnPool;  // 数据库
+  std::list<T*> mWorkQueue;  // 请求队列
   // 配置变量 ----------------------------------------
   ACTOR_MODE mActorModel;  // 模型
   int mThreadNumber;       // 线程池中的线程数
@@ -42,14 +40,12 @@ class threadPool {
 };
 
 template <typename T>
-threadPool<T>::threadPool(ACTOR_MODE actor_model,
-                          std::shared_ptr<connPool> connPool, int threadNumber,
+threadPool<T>::threadPool(ACTOR_MODE actor_model, int threadNumber,
                           int maxRequests)
     : mActorModel(actor_model),
       mThreadNumber(threadNumber),
       mMaxRequests(maxRequests),
-      mThreads(NULL),
-      mConnPool(connPool) {
+      mThreads(nullptr) {
   if (threadNumber <= 0 || maxRequests <= 0) {
     throw std::exception();
   }
@@ -59,7 +55,7 @@ threadPool<T>::threadPool(ACTOR_MODE actor_model,
   }
 
   for (int i = 0; i < threadNumber; ++i) {
-    if (pthread_create(mThreads + i, NULL, worker, this) != 0) {
+    if (pthread_create(mThreads + i, nullptr, worker, this) != 0) {
       delete[] mThreads;
       throw std::exception();
     }
@@ -110,7 +106,6 @@ void threadPool<T>::run() {
       if (REQUEST_STEATE::READ == request->mState) {
         if (request->readHTTPRequest()) {
           request->improv = 1;
-          connRAII mysqlcon(&request->mysql, mConnPool);
           request->handleHTTPRequest();
         } else {
           request->improv = 1;
@@ -127,7 +122,6 @@ void threadPool<T>::run() {
         // none
       }
     } else if (ACTOR_MODE::PROACTOR == mActorModel) {
-      connRAII mysqlcon(&request->mysql, mConnPool);
       request->handleHTTPRequest();
     } else {
       // none

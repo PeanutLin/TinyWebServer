@@ -19,40 +19,9 @@ const char* error_500_title = "Internal Error";
 const char* error_500_form =
     "There was an unusual problem serving the request file.\n";
 
-std::mutex sqlMutex;
-std::map<std::string, std::string> users;
-
 // 初始化全局静态变量
 int httpConn::mEpollfd = -1;
 std::atomic<int> httpConn::userCount(0);
-
-// 初始化数据建库数据
-void httpConn::initMysqlResult(std::shared_ptr<connPool>& connPool) {
-  // 连接池中取一个连接
-  MYSQL* mysql = nullptr;
-  connRAII mysqlCon(&mysql, connPool);
-
-  // 在 user 表中检索 username，passwd 数据，浏览器端输入
-  if (mysql_query(mysql, "SELECT username,passwd FROM user")) {
-    LOG_ERROR("SELECT error:%s\n", mysql_error(mysql));
-  }
-
-  // 从表中检索完整的结果集
-  MYSQL_RES* result = mysql_store_result(mysql);
-
-  // 返回结果集中的列数
-  int num_fields = mysql_num_fields(result);
-
-  // 返回所有字段结构的数组
-  MYSQL_FIELD* fields = mysql_fetch_fields(result);
-
-  // 从结果集中获取下一行，将对应的用户名和密码，存入map中
-  while (MYSQL_ROW row = mysql_fetch_row(result)) {
-    std::string temp1(row[0]);
-    std::string temp2(row[1]);
-    users[temp1] = temp2;
-  }
-}
 
 // 关闭连接，关闭一个连接，客户总量减一
 void httpConn::closeConn(bool realClose) {
@@ -64,22 +33,18 @@ void httpConn::closeConn(bool realClose) {
 }
 
 // 初始化连接,外部调用初始化套接字地址
-void httpConn::init(int sockfd, const sockaddr_in& addr, char* assets,
-                    int TRIGMode, int close_log, std::string user,
-                    std::string passwd, std::string sqlname) {
+void httpConn::initConn(int sockfd, const sockaddr_in& addr, char* assets,
+                        int TRIGMode,
+                        std::shared_ptr<connPool<MySQLConn>> pool) {
   mSockfd = sockfd;
   mAddress = addr;
-
+  mConnPool = pool;
   UTILS::addfd(mEpollfd, sockfd, true, mTRIGMode);
   userCount.fetch_add(1);
 
   // 当浏览器出现连接重置时，可能是网站根目录出错或http响应格式出错或者访问的文件中内容完全为空
   docRoot = assets;
   mTRIGMode = TRIGMode;
-
-  strcpy(sqlUser, user.c_str());
-  strcpy(sqlPasswd, passwd.c_str());
-  strcpy(sqlName, sqlname.c_str());
 
   // 初始化新接受的连接
   init();
@@ -88,7 +53,6 @@ void httpConn::init(int sockfd, const sockaddr_in& addr, char* assets,
 // 初始化新接受的连接
 // check_state 默认为分析请求行状态
 void httpConn::init() {
-  mysql = NULL;
   bytesToSend = 0;
   bytesHaveSend = 0;
   mCheckState = CHECK_STATE_REQUESTLINE;
@@ -337,23 +301,32 @@ httpConn::HTTP_CODE httpConn::doRequest() {
     if (*(p + 1) == '3') {
       // 如果是注册，先检测数据库中是否有重名的
       // 没有重名的，进行增加数据
-      char* sql_insert = (char*)malloc(sizeof(char) * 200);
-      strcpy(sql_insert, "INSERT INTO user(username, passwd) VALUES(");
-      strcat(sql_insert, "'");
-      strcat(sql_insert, name);
-      strcat(sql_insert, "', '");
-      strcat(sql_insert, password);
-      strcat(sql_insert, "')");
-      LOG_DEBUG(sql_insert);
+      char* sql_query = (char*)malloc(sizeof(char) * 200);
 
-      if (users.find(name) == users.end()) {
+      strcpy(sql_query, "SELECT username FROM user WHERE username = '");
+      strcat(sql_query, name);
+      strcat(sql_query, "'");
+      std::cout << sql_query << std::endl;
+
+      std::shared_ptr<MySQLConn> con;
+      connRAII<MySQLConn> CR(con, mConnPool);
+
+      std::string sq(sql_query);
+      if (!con->Exist(sq)) {
         // 正常注册
-        sqlMutex.lock();
-        int res = mysql_query(mysql, sql_insert);
-        users.insert(std::pair<std::string, std::string>(name, password));
-        sqlMutex.unlock();
+        char* sql_insert = (char*)malloc(sizeof(char) * 200);
+        strcpy(sql_insert, "INSERT INTO user(username, passwd) VALUES(");
+        strcat(sql_insert, "'");
+        strcat(sql_insert, name);
+        strcat(sql_insert, "', '");
+        strcat(sql_insert, password);
+        strcat(sql_insert, "')");
+        std::cout << sql_insert << std::endl;
 
-        if (!res) {
+        std::string si(sql_insert);
+        int res = con->Insert(si);
+
+        if (res) {
           strcpy(mURL, "/log.html");
         } else {
           strcpy(mURL, "/registerError.html");
@@ -366,10 +339,27 @@ httpConn::HTTP_CODE httpConn::doRequest() {
     // 如果是登录，直接判断
     // 若浏览器端输入的用户名和密码在表中可以查找到，返回1，否则返回0
     else if (*(p + 1) == '2') {
-      if (users.find(name) != users.end() && users[name] == password)
+      std::shared_ptr<MySQLConn> con;
+      connRAII<MySQLConn> CR(con, mConnPool);
+      char* sql_query = (char*)malloc(sizeof(char) * 200);
+      strcpy(sql_query, "SELECT username FROM user WHERE username = ");
+      strcat(sql_query, "'");
+      strcat(sql_query, name);
+      strcat(sql_query, "'");
+      strcat(sql_query, " && ");
+      strcat(sql_query, "passwd = ");
+      strcat(sql_query, "'");
+      strcat(sql_query, password);
+      strcat(sql_query, "'");
+      std::cout << sql_query << std::endl;
+
+      std::string sq(sql_query);
+      int result = con->Exist(sq);
+      if (result) {
         strcpy(mURL, "/welcome.html");
-      else
+      } else {
         strcpy(mURL, "/logError.html");
+      }
     }
   }
 

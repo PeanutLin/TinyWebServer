@@ -14,11 +14,9 @@
 #include <memory>
 
 #include "../config/config.h"
-#include "../db/sqlConnPool.h"
 #include "../http/httpConn.h"
+#include "../log/log.h"
 #include "../threadPool/threadPool.h"
-#include "../types/types.h"
-#include "../utils/utils.h"
 
 const int MAX_FD = 65536;            // 最大文件描述符
 const int MAX_EVENT_NUMBER = 10000;  // 最大事件数
@@ -45,7 +43,7 @@ class WebServer {
   httpConn* users;
 
   // 数据库连接池
-  std::shared_ptr<connPool> mConnPool;
+  std::shared_ptr<connPool<MySQLConn>> mConnPool;
 
   // 线程池
   std::shared_ptr<threadPool<httpConn>> mPool;
