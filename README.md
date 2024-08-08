@@ -70,6 +70,6 @@ $ ./myserver
 # ToDo
 
 - [ ] 基于 Trie 树，实现路由功能
-- [ ] 解决目前 MySQL 连接池的连接回收问题
+- [x] 解决目前 MySQL 连接池的连接回收问题
 - [ ] 封装 Context 上下文
 

@@ -58,3 +58,7 @@ bool MySQLConn::Exist(std::string& sql) {
   }
   return false;
 }
+
+bool MySQLConn::IsTimeout() {
+  return mysql_ping(this->con) != 0;
+}

@@ -15,4 +15,6 @@ class MySQLConn {
   bool Exist(std::string& sql);
   // 执行 sql 插入语句
   bool Insert(std::string& sql);
+  // 检查当前连接是否超时
+  bool IsTimeout();
 };

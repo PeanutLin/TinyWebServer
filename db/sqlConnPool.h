@@ -75,7 +75,9 @@ std::shared_ptr<ConnType> connPool<ConnType>::GetConnection() {
 
   auto con = ConnList.front();
   ConnList.pop_front();
-
+  if (con->IsTimeout()) {
+    con = std::make_shared<ConnType>();
+  }
   --FreeConn;
   ++CurConn;
   mCond.notify_all();
